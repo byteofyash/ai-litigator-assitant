@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Litigator Assistant</title>
+    <!-- Optional: Add a link to a CSS file later for styling -->
+    <!-- <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"> -->
+    <style>
+        /* Basic inline styles for quick layout */
+        body {
+            font-family: sans-serif;
+            line-height: 1.6;
+            margin: 20px;
+        }
+        textarea {
+            width: 90%;
+            min-height: 150px; /* Make textarea reasonably large */
+            margin-bottom: 10px;
+            display: block; /* Ensure button appears below */
+        }
+        button {
+            padding: 10px 15px;
+            cursor: pointer;
+            margin-bottom: 15px;
+        }
+        #summaryOutput {
+            border: 1px solid #ccc;
+            padding: 15px;
+            min-height: 100px;
+            background-color: #f9f9f9;
+            white-space: pre-wrap; /* Preserve line breaks in summary */
+        }
+        .loading {
+             font-style: italic;
+             color: #555;
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>AI Litigator Assistant</h1>
+    <p>Paste your legal document text below and click "Summarize".</p>
+
+    <!-- Input Area -->
+    <label for="inputText">Document Text:</label>
+    <textarea id="inputText" placeholder="Paste legal text here..."></textarea>
+
+    <!-- Submit Button -->
+    <button id="summarizeBtn">Summarize</button>
+
+    <!-- Output Area -->
+    <h2>Summary:</h2>
+    <div id="summaryOutput">
+        <!-- The summary will appear here -->
+        Your summary will appear here after processing.
+    </div>
+
+    <!-- JavaScript will go here -->
+    <script>
+// Get references to the HTML elements we need to interact with
+const inputTextElement = document.getElementById('inputText');
+        const summarizeBtnElement = document.getElementById('summarizeBtn');
+        const summaryOutputElement = document.getElementById('summaryOutput');
+
+        // Add an event listener to the button. This function will run when the button is clicked.
+        summarizeBtnElement.addEventListener('click', async () => {
+            // 1. Get the text from the textarea
+            const textToSummarize = inputTextElement.value;
+
+            // Basic check: Don't send empty requests
+            if (!textToSummarize.trim()) {
+                summaryOutputElement.textContent = 'Please paste some text first.';
+                summaryOutputElement.className = 'error'; // Use the error style
+                return; // Stop the function here
+            }
+
+            // 2. Give feedback to the user that processing has started
+            summaryOutputElement.textContent = 'Processing... Please wait.';
+            summaryOutputElement.className = 'loading'; // Use the loading style
+            summarizeBtnElement.disabled = true; // Disable button during processing
+
+            // 3. Prepare the request to send to the Flask backend
+            const apiUrl = '/summarize'; // The endpoint defined in your Flask app
+
+            try {
+                // 4. Send the request using the Fetch API
+                const response = await fetch(apiUrl, {
+                    method: 'POST', // Specify the HTTP method
+                    headers: {
+                        'Content-Type': 'application/json', // Tell the server we're sending JSON
+                    },
+                    body: JSON.stringify({ text: textToSummarize }), // Convert the JS object to a JSON string
+                });
+
+                // 5. Check if the request was successful (HTTP status code 200-299)
+                if (!response.ok) {
+                    // If not successful, try to get error message from backend, or use default
+                    let errorMsg = `HTTP error! status: ${response.status}`;
+                    try {
+                         const errorData = await response.json();
+                         errorMsg = errorData.error || errorMsg; // Use backend error if available
+                    } catch (e) { /* Ignore if response wasn't JSON */ }
+                    throw new Error(errorMsg); // Throw an error to be caught by the catch block
+                }
+
+                // 6. Parse the JSON response from the server
+                const data = await response.json();
+
+                // 7. Display the summary received from the backend
+                if (data.summary) {
+                    summaryOutputElement.textContent = data.summary;
+                    summaryOutputElement.className = ''; // Remove loading/error class
+                } else {
+                    summaryOutputElement.textContent = 'Received response, but no summary found.';
+                     summaryOutputElement.className = 'error';
+                }
+
+            } catch (error) {
+                // 8. Handle any errors during the fetch process or from the server
+                console.error('Error fetching summary:', error);
+                summaryOutputElement.textContent = `Error: ${error.message}`;
+                summaryOutputElement.className = 'error'; // Use the error style
+            } finally {
+                 // 9. Re-enable the button regardless of success or failure
+                 summarizeBtnElement.disabled = false;
+            }
+        });    
+        </script>
+
+</body>
+</html>
